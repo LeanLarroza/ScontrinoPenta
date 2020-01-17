@@ -1482,5 +1482,11 @@ namespace ScontrinoPenta
             Log.WriteLog("Codice Pagamento Elettronico: 2");
             Log.WriteLog("Codice Pagamento Non Riscosso: 3");
         }
+
+        private void RedimensionaForm(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+        }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace ScontrinoPenta
+﻿using System;
+
+namespace ScontrinoPenta
 {
     partial class Form1
     {
@@ -87,6 +89,8 @@
             this.Text = "Penta-Scontrino";
             this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
             this.Load += new System.EventHandler(this.Form1_Load);
+            this.SizeChanged += new System.EventHandler(this.RedimensionaForm);
+            this.Resize += new System.EventHandler(this.RedimensionaForm);
             this.contextMenuStrip1.ResumeLayout(false);
             this.ResumeLayout(false);
 

@@ -34,7 +34,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\..\..\..\Proyectos VB.Net\ScontrinoPenta\Output\</OutputPath>
+    <OutputPath>\\MARTIN\c\Proyectos VB.Net\ScontrinoPenta\Output\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>3</WarningLevel>
@@ -61,10 +61,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AutoClosingMessageBox">
-      <HintPath>..\..\..\..\..\..\Proyectos VB.Net\FattElett2.0\AutoClosingMessageBox.dll</HintPath>
+      <HintPath>..\packages\AutoClosingMessageBox\AutoClosingMessageBox.dll</HintPath>
     </Reference>
     <Reference Include="FirebirdSql.Data.FirebirdClientOLD">
-      <HintPath>..\..\..\..\..\..\Proyectos VB.Net\FireBirdOld\FirebirdSql.Data.FirebirdClientOLD.dll</HintPath>
+      <HintPath>..\packages\Firebird\FirebirdSql.Data.FirebirdClientOLD.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="System" />
