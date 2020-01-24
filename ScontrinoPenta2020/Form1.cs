@@ -46,13 +46,21 @@ namespace ScontrinoPenta
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            Log.InizializzareLog();
-            Log.WriteLog("----------------------------------------------------------------------------");
-            Log.WriteLog("Avvio Scontrino Penta");
-            LoadIni();
-            OpenDatabase();
-            AggDatabase();
-            ImpostaPagamenti();
+            try
+            {
+                Log.InizializzareLog();
+                Log.WriteLog("----------------------------------------------------------------------------");
+                Log.WriteLog("Avvio Scontrino Penta");
+                LoadIni();
+                OpenDatabase();
+                AggDatabase();
+                ImpostaPagamenti();
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Errore avvio gestione Scontrino Telematico." + Environment.NewLine + "Riavvio in corso...");
+                Application.Restart();
+            }
 
             FbRemoteEvent scontrino = new FbRemoteEvent(connection);
             if (postazione == "1")
