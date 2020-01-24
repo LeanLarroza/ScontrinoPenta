@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
@@ -37,10 +38,10 @@ namespace ScontrinoPenta
         private static string percorsofpmate = "";
         private static string dettnsco = "";
         private static string dettcapi = "";
+        private static int TimeoutStampante = 0;
         private static string scontrinoparlante = "";
         public static bool connopen = false;
         public static FbConnection connection;
-        public static bool servizio = false;
         public static Log Log = new Log();
 
         private void Form1_Load(object sender, EventArgs e)
@@ -51,8 +52,8 @@ namespace ScontrinoPenta
             LoadIni();
             OpenDatabase();
             AggDatabase();
+            ImpostaPagamenti();
 
-            servizio = true;
             FbRemoteEvent scontrino = new FbRemoteEvent(connection);
             if (postazione == "1")
             {
@@ -71,7 +72,7 @@ namespace ScontrinoPenta
             scontrino.RemoteEventCounts += new FbRemoteEventEventHandler(EventCounts);
             scontrino.QueueEvents();
             notifyIcon1.ContextMenuStrip = contextMenuStrip1;
-            notifyIcon1.ShowBalloonTip(1000, "PentaStart - Scontrino Penta", "Servizio Attivo", ToolTipIcon.Info);
+            notifyIcon1.ShowBalloonTip(500, "PentaStart - Scontrino Penta", "Servizio Attivo", ToolTipIcon.Info);
             Log.WriteLog("Servizio ScontrinoPenta attivo");
         }
 
@@ -138,6 +139,7 @@ namespace ScontrinoPenta
             FbCommand trigg_newscon = new FbCommand("SELECT COUNT(RDB$RELATION_NAME) FROM RDB$TRIGGERS WHERE RDB$SYSTEM_FLAG = 0 AND RDB$TRIGGER_NAME='NEW_SCONTRINOIMMEDIATO';", connection);
             if (Convert.ToInt16(trigg_newscon.ExecuteScalar()) == 0)
             {
+                ImpostaPagamenti();
                 Log.WriteLog("Avvio configurazione Postazione");
                 GetPostazioneOperatori();
                 i++;
@@ -166,22 +168,25 @@ namespace ScontrinoPenta
             attendere.Refresh();
             DateTime Inizio = DateTime.Now;
             List<string> FbLotti = LetturaLotti();
-            List<string> Lottirighe = LetturaLottirighe();
+            List<string> FbLottirighe = LetturaLottirighe();
 
-            if (Lottirighe.Count > 0 && FbLotti.Count == 0)
+            if (FbLottirighe.Count > 0 && FbLotti.Count == 0)
             {
                 FbLotti = LetturaLotti();
             }
+
+            string StringLotti = string.Join(",", FbLotti);
+            string StringLottirighe = string.Join(",", FbLottirighe);
 
             Decimal TotaleDocumento = 0.00M;
             decimal PagamentoContante = 0.00M;
             decimal PagamentoCarta = 0.00M;
             decimal PagamentoNonRiscosso = 0.00M;
 
-            GetPagamenti(FbLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
+            GetPagamenti(StringLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
             decimal TotalePagamento = GetTotalePagamento(PagamentoContante, PagamentoCarta, PagamentoNonRiscosso);
 
-            FbCommand readarticoli = new FbCommand("SELECT LR.ARTICOLOID, LR.LOTTORIGADESCRIZIONE, ART.ARTICOLOCODREP, LAV.LOTTORIGALAVORAZIONEPREZZO,MLR.MODIFICATOREID ,MLR.MODIFLOTTORIGAVALORE FROM LOTTIRIGHE LR JOIN ARTICOLI ART ON LR.ARTICOLOID = ART.ARTICOLOID JOIN LOTTIRIGHELAVORAZIONI LAV ON LR.LOTTORIGAID = LAV.LOTTORIGAID FULL JOIN MODIFICATORILOTTIRIGHE MLR ON LR.LOTTORIGAID = MLR.LOTTORIGAID WHERE LR.LOTTORIGAID IN(" + string.Join(",", Lottirighe) + ");", connection);
+            FbCommand readarticoli = new FbCommand("SELECT LR.ARTICOLOID, LR.LOTTORIGADESCRIZIONE, ART.ARTICOLOCODREP, LAV.LOTTORIGALAVORAZIONEPREZZO,MLR.MODIFICATOREID ,MLR.MODIFLOTTORIGAVALORE FROM LOTTIRIGHE LR JOIN ARTICOLI ART ON LR.ARTICOLOID = ART.ARTICOLOID JOIN LOTTIRIGHELAVORAZIONI LAV ON LR.LOTTORIGAID = LAV.LOTTORIGAID FULL JOIN MODIFICATORILOTTIRIGHE MLR ON LR.LOTTORIGAID = MLR.LOTTORIGAID WHERE LR.LOTTORIGAID IN(" + StringLottirighe + ");", connection);
             FbDataReader reader1 = readarticoli.ExecuteReader();
             List<FbArticolo> Articoli = new List<FbArticolo>();
             while (reader1.Read())
@@ -260,7 +265,7 @@ namespace ScontrinoPenta
                 articolidesc.Add(new Articolo { rep = articolo.ARTICOLOCODREP.ToString(), desc = articolo.LOTTORIGADESCRIZIONE, prezzo = GetDecimal(articolo.LOTTORIGALAVORAZIONEPREZZO) });
             }
 
-            FbCommand readscontrini = new FbCommand("SELECT LO.LOTTONUMERO,MLO.TIPOMODIFICATOREID,MLO.MODIFLOTTOVALORE FROM LOTTI LO FULL JOIN MODIFICATORILOTTI MLO ON LO.LOTTOID = MLO.LOTTOID WHERE LO.LOTTOID IN(" + string.Join(",", FbLotti) + ") ORDER BY LO.LOTTOID;", connection);
+            FbCommand readscontrini = new FbCommand("SELECT LO.LOTTONUMERO,MLO.TIPOMODIFICATOREID,MLO.MODIFLOTTOVALORE FROM LOTTI LO FULL JOIN MODIFICATORILOTTI MLO ON LO.LOTTOID = MLO.LOTTOID WHERE LO.LOTTOID IN(" + StringLotti + ") ORDER BY LO.LOTTOID;", connection);
             FbDataReader reader2 = readscontrini.ExecuteReader();
             List<FbScontrini> Lotti = new List<FbScontrini>();
             while (reader2.Read())
@@ -306,7 +311,7 @@ namespace ScontrinoPenta
             Log.WriteLog("Totale sconti: €" + TotaleSconti);
             Log.WriteLog("Totale scontrino: €" + TotaleDocumento);
 
-            Log.WriteLog("Scontrini:" + string.Join(" - ",Lotti.Select(x => x.LOTTONUMERO).ToArray()));
+            Log.WriteLog("Scontrini:" + string.Join(" - ", Lotti.Select(x => x.LOTTONUMERO).ToArray()));
 
             int contatore = 0;
             foreach (var item in articolidesc)
@@ -337,13 +342,20 @@ namespace ScontrinoPenta
             Log.WriteLog("Totale righe: " + ScontrinoRow.Count);
             Log.WriteLog("Totale pezzi: " + ScontrinoRow.Sum(pezzi => pezzi.qty));
 
-            string infocliente = ""; /*GetInfoCliente();*/
-            Log.WriteLog("Info Cliente: " + infocliente);
+            string infocliente = GetInfoCliente(StringLotti);
+            if (infocliente != "")
+            {
+                Log.WriteLog("Info Cliente: " + infocliente);
+            }
+            else
+            {
+                Log.WriteLog("Nessun C.F./P.IVA da abbinare allo scontrino");
+            }
 
             if (TotalePagamento == 0)
             {
-                Log.WriteLog("Totale Pagamento: 0. Ricerca pagamenti precedenti in corso...");
-                GetPagamentiAnticipati(FbLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
+                Log.WriteLog("Nessun pagamento attuale. Ricerca pagamenti precedenti in corso...");
+                GetPagamentiAnticipati(StringLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
                 TotalePagamento = GetTotalePagamento(PagamentoContante, PagamentoCarta, PagamentoNonRiscosso);
                 if (TotalePagamento == 0)
                 {
@@ -362,11 +374,51 @@ namespace ScontrinoPenta
 
             ControlloDriverInvioScontrino();
 
+            InvioScontrino(FbLotti, TotaleDocumento, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, TotalePagamento, TotaleSconti, ScontrinoRow, Lotti, infocliente);
+            Log.WriteLog("Fine scrittura file scontrino (" + DateTime.Now.Subtract(Inizio).TotalSeconds + " secondi)");
+            attendere.Close();
+            if (ControlloFile())
+            {
+                attendere.Close();
+                attendere.Dispose();
+            }
+            else
+            {
+                Log.WriteLog("Errore invio scontrino. Riprovo..");
+                ResetDriverScontrino();
+                Thread.Sleep(2000);
+                InvioScontrino(FbLotti, TotaleDocumento, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, TotalePagamento, TotaleSconti, ScontrinoRow, Lotti, infocliente);
+                if (ControlloFile())
+                {
+                    attendere.Close();
+                    attendere.Dispose();
+                }
+                else
+                {
+                    attendere.Close();
+                    attendere.Dispose();
+                    ErroreStampa errore = new ErroreStampa();
+                    errore.ShowDialog();
+                    errore.Dispose();
+                }
+            }
+
+            TotaleDocumento = 0;
+            TotalePagamento = 0;
+            TotaleSconti = 0;
+            PagamentoContante = 0;
+            PagamentoCarta = 0;
+            PagamentoNonRiscosso = 0;
+        }
+
+        private void InvioScontrino(List<string> FbLotti, decimal TotaleDocumento, decimal PagamentoContante, decimal PagamentoCarta, decimal PagamentoNonRiscosso, decimal TotalePagamento, double TotaleSconti, List<ElementsScontrino> ScontrinoRow, List<FbScontrini> Lotti, string infocliente)
+        {
             if (TotaleDocumento > TotalePagamento)
             {
                 FbCommand isrecupero = new FbCommand("SELECT COUNT(LOTTOID) FROM DOCUMENTILOTTI WHERE TIPODOCUMENTOID = 4 AND LOTTOID IN (" + string.Join(" - ", FbLotti) + ")", connection);
                 int qtylotti = Convert.ToInt32(isrecupero.ExecuteScalar()) / FbLotti.Count;
-                if (qtylotti == 1)
+                Log.WriteLog("Quantita records su DocumentiLotti: " + qtylotti.ToString());
+                if (qtylotti < 2)
                 {
                     Log.WriteLog("Rilevato scontrino acconto");
                     if (mct == "true")
@@ -410,30 +462,6 @@ namespace ScontrinoPenta
                         Log.WriteLog("Fine invio scontrino recupero credito Epson");
                     }
                 }
-                else if (qtylotti == 0)
-                {
-                    Log.WriteLog("Rilevato scontrino pago anticipato");
-                    Log.WriteLog("Calcolo pagamanti in corso");
-                    GetPagamentiAnticipati(FbLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
-                    if (mct == "true")
-                    {
-                        Log.WriteLog("Avvio invio scontrino pago anticipato RCH");
-                        InvioScontrinoRCH(ScontrinoRow, TotaleSconti, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, Lotti, infocliente);
-                        Log.WriteLog("Fine invio scontrino pago anticipato RCH");
-                    }
-                    else if (ditron == "true")
-                    {
-                        Log.WriteLog("Avvio invio scontrino pago anticipato Ditron");
-                        InvioScontrinoDitron(ScontrinoRow, TotaleSconti, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, Lotti, infocliente);
-                        Log.WriteLog("Fine invio scontrino pago anticipato Ditron");
-                    }
-                    else if (epson == "true")
-                    {
-                        Log.WriteLog("Avvio invio scontrino pago anticipato Epson");
-                        InvioScontrinoEpson(ScontrinoRow, TotaleSconti, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, Lotti, infocliente);
-                        Log.WriteLog("Fine invio scontrino pago anticipato Epson");
-                    }
-                }
             }
             else if (TotaleDocumento <= TotalePagamento)
             {
@@ -457,31 +485,41 @@ namespace ScontrinoPenta
                     Log.WriteLog("Fine invio scontrino completo Epson");
                 }
             }
-
-            Log.WriteLog("Fine scrittura file scontrino (" + DateTime.Now.Subtract(Inizio).TotalSeconds + " secondi)");
-            //ControlloFile();
-            attendere.Close();
-
-            TotaleDocumento = 0;
-            TotalePagamento = 0;
-            TotaleSconti = 0;
-            PagamentoContante = 0;
-            PagamentoCarta = 0;
-            PagamentoNonRiscosso = 0;
         }
 
-        private void ControlloFile()
+        private bool ControlloFile()
         {
-            string filescontrino = GetPercorsoStampante() + "\\scontrino.txt";
-            int secondi = 0;
-            while (File.Exists(filescontrino))
+            Log.WriteLog("Avvio controllo Stampante Fiscale.");
+            if (mct == "true")
             {
-                System.Threading.Thread.Sleep(1000);
-                secondi++;
-                if (secondi > 12)
+                Log.WriteLog("Controllo File scontrino.OK.");
+                string[] paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "*.OK");
+                int secondi = TimeoutStampante;
+                while (paths.Length == 0)
                 {
-                    
+                    if (secondi == 0)
+                    {
+                        Log.WriteLog("Errore Stampa. Timeout: " + TimeoutStampante);
+                        return false;
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                    secondi--;
+                    paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "*.OK");
                 }
+                Log.WriteLog("MultiDriver ha inviato lo scontrino con succeso.");
+                return true;
+            }
+            else if (ditron == "true")
+            {
+                return true;
+            }
+            else if (epson == "true")
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
 
@@ -540,10 +578,47 @@ namespace ScontrinoPenta
             }
         }
 
-        private static string GetInfoCliente()
+        private static void ResetDriverScontrino()
+        {
+            if (mct == "true")
+            {
+                Process[] multidriver = Process.GetProcessesByName("MULTIDRIVER_SERVER");
+                foreach (var item in multidriver)
+                {
+                    item.Kill();
+                }
+                System.Diagnostics.Process multiserver = new System.Diagnostics.Process();
+                multiserver.StartInfo.FileName = percorsomultidriver + "\\MULTIDRIVER_SERVER.exe";
+                multiserver.Start();
+            }
+            else if (ditron == "true")
+            {
+                Process[] multidriver = Process.GetProcessesByName("SoEcrCom");
+                foreach (var item in multidriver)
+                {
+                    item.Kill();
+                }
+                System.Diagnostics.Process multiserver = new System.Diagnostics.Process();
+                multiserver.StartInfo.FileName = percorsowinecr + "\\Drivers\\SoEcrCom.exe";
+                multiserver.Start();
+            }
+            else if (epson == "true")
+            {
+                Process[] multidriver = Process.GetProcessesByName("EpsonFpMate");
+                foreach (var item in multidriver)
+                {
+                    item.Kill();
+                }
+                System.Diagnostics.Process multiserver = new System.Diagnostics.Process();
+                multiserver.StartInfo.FileName = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) + "\\EpsonFpMate\\EpsonFpMate.exe";
+                multiserver.Start();
+            }
+        }
+
+        private static string GetInfoCliente(string StringLotti)
         {
             string infocliente = "";
-            FbCommand getInfoCliente = new FbCommand("SELECT INFOCLIENTE FROM SCONTRINO_CODFIS1", connection);
+            FbCommand getInfoCliente = new FbCommand("SELECT CLIENTECODICEFISCALE FROM CLIENTI WHERE CLIENTEID = (SELECT MAX(LOTTOCLIENTEID) FROM LOTTI WHERE LOTTOID IN (" + StringLotti + "))", connection);
             try
             {
                 infocliente = getInfoCliente.ExecuteScalar().ToString();
@@ -564,9 +639,9 @@ namespace ScontrinoPenta
             return TotalePagamento;
         }
 
-        private static void GetPagamenti(List<string> FbLotti, ref decimal PagamentoContante, ref decimal PagamentoCarta, ref decimal PagamentoNonRiscosso)
+        private static void GetPagamenti(string StringLotti, ref decimal PagamentoContante, ref decimal PagamentoCarta, ref decimal PagamentoNonRiscosso)
         {
-            FbCommand getPagamentoContanti = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 1) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
+            FbCommand getPagamentoContanti = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 1) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
             var pagContanti = getPagamentoContanti.ExecuteScalar();
             if (!Convert.IsDBNull(pagContanti))
             {
@@ -574,7 +649,7 @@ namespace ScontrinoPenta
                 Log.WriteLog("Pagamento Contanti: €" + PagamentoContante.ToString());
             }
 
-            FbCommand getPagamentoElettronico = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 2) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
+            FbCommand getPagamentoElettronico = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 2) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
             var pagElettronico = getPagamentoElettronico.ExecuteScalar();
             if (!Convert.IsDBNull(pagElettronico))
             {
@@ -582,7 +657,7 @@ namespace ScontrinoPenta
                 Log.WriteLog("Pagamento Elettronico: €" + PagamentoCarta.ToString());
             }
 
-            FbCommand getPagamentoNonRiscosso = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 3) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
+            FbCommand getPagamentoNonRiscosso = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 3) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ") and pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\' and pagamentolottoora = (select max(pagamentolottoora) from pagamentilotti where pagamentolottodata = \'" + DateTime.Now.ToString("yyyy-MM-dd") + "\')", connection);
             var pagNonRiscosso = getPagamentoNonRiscosso.ExecuteScalar();
             if (!Convert.IsDBNull(pagNonRiscosso))
             {
@@ -591,9 +666,9 @@ namespace ScontrinoPenta
             }
         }
 
-        private static void GetPagamentiAnticipati(List<string> FbLotti, ref decimal PagamentoContante, ref decimal PagamentoCarta, ref decimal PagamentoNonRiscosso)
+        private static void GetPagamentiAnticipati(string StringLotti, ref decimal PagamentoContante, ref decimal PagamentoCarta, ref decimal PagamentoNonRiscosso)
         {
-            FbCommand getPagamentoContanti = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 1) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ")", connection);
+            FbCommand getPagamentoContanti = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 1) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ")", connection);
             var pagContanti = getPagamentoContanti.ExecuteScalar();
             if (!Convert.IsDBNull(pagContanti))
             {
@@ -601,7 +676,7 @@ namespace ScontrinoPenta
                 Log.WriteLog("Pagamento Contanti: €" + PagamentoContante.ToString());
             }
 
-            FbCommand getPagamentoElettronico = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 2) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ")", connection);
+            FbCommand getPagamentoElettronico = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 2) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ")", connection);
             var pagElettronico = getPagamentoElettronico.ExecuteScalar();
             if (!Convert.IsDBNull(pagElettronico))
             {
@@ -609,7 +684,7 @@ namespace ScontrinoPenta
                 Log.WriteLog("Pagamento Elettronico: €" + PagamentoCarta.ToString());
             }
 
-            FbCommand getPagamentoNonRiscosso = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 3) and PAGAMENTILOTTI.LOTTOID in (" + string.Join(",", FbLotti) + ")", connection);
+            FbCommand getPagamentoNonRiscosso = new FbCommand("select SUM(pagamentolottoversato) from pagamentilotti where pagamentilotti.TIPOPAGAMENTOID in (select TIPIPAGAMENTI.TIPOPAGAMENTOID from TIPIPAGAMENTI where TIPIPAGAMENTI.TIPOPAGAMENTOCODICE = 3) and PAGAMENTILOTTI.LOTTOID in (" + StringLotti + ")", connection);
             var pagNonRiscosso = getPagamentoNonRiscosso.ExecuteScalar();
             if (!Convert.IsDBNull(pagNonRiscosso))
             {
@@ -1410,6 +1485,8 @@ namespace ScontrinoPenta
                 Log.WriteLog("Stampante Epson: " + epson);
                 postazione = ini.GetKeyValue("STAMPANTI", "Postazione");
                 Log.WriteLog("Postazione PC: " + postazione);
+                TimeoutStampante = Convert.ToInt32(ini.GetKeyValue("STAMPANTI", "TimeoutStampante"));
+                Log.WriteLog("Timeout Stampante: " + TimeoutStampante.ToString());
                 dettnsco = ini.GetKeyValue("STAMPANTI", "DettaglioNScontrino");
                 Log.WriteLog(dettnsco == "true" ? "Stampa Numero Scontrino (Riferimento scontrino): SI" : "Stampa Numero Scontrino (Riferimento scontrino): NO");
                 dettcapi = ini.GetKeyValue("STAMPANTI", "DettaglioCapi");

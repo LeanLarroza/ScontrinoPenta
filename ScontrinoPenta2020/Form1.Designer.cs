@@ -68,7 +68,7 @@ namespace ScontrinoPenta
             // 
             this.resetPostazioneToolStripMenuItem.Name = "resetPostazioneToolStripMenuItem";
             this.resetPostazioneToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
-            this.resetPostazioneToolStripMenuItem.Text = "Reset Postazione";
+            this.resetPostazioneToolStripMenuItem.Text = "Reset Postazioni";
             this.resetPostazioneToolStripMenuItem.Click += new System.EventHandler(this.ResetPostazioneToolStripMenuItem_Click);
             // 
             // impostaPagamentiToolStripMenuItem
