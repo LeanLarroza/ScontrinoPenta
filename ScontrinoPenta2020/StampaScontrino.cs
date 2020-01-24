@@ -22,5 +22,10 @@ namespace ScontrinoPenta
             this.BringToFront();
             this.TopMost = true;
         }
+
+        private void Label1_DoubleClick(object sender, EventArgs e)
+        {
+            this.TopMost = false;
+        }
     }
 }

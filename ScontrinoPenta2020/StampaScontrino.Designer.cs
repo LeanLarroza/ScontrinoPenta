@@ -46,6 +46,7 @@
             this.Label1.TabIndex = 27;
             this.Label1.Text = "ATTENDERE";
             this.Label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.Label1.DoubleClick += new System.EventHandler(this.Label1_DoubleClick);
             // 
             // Label2
             // 

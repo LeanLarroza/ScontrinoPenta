@@ -904,65 +904,49 @@ namespace ScontrinoPenta
         private void InvioScontrinoAccontoEpson(List<ElementsScontrino> ScontrinoRow, decimal PagamentoContante, decimal PagamentoCarta, decimal PagamentoNonRiscosso, List<FbScontrini> listasco, string infoscontrino)
         {
             List<string> commandi = new List<string>();
-            commandi.Add("clear");
-            commandi.Add("chiave reg");
+            commandi.Add("printerFiscalReceipt");
+            commandi.Add("beginFiscalReceipt|1");
+            commandi.Add("Printer|1");
 
             decimal TotalePagamento = PagamentoContante + PagamentoCarta + PagamentoNonRiscosso;
 
-            if (infoscontrino != "" && scontrinoparlante == "true")
-            {
-                commandi.Add("INP TERM=61");
-                commandi.Add("INP ALFA=\'" + infoscontrino + "\',TERM=49");
-            }
+            //if (infoscontrino != "" && scontrinoparlante == "true")
+            //{
+            //}
 
-            commandi.Add("vend rep=1, prezzo=" + TotalePagamento.ToString("0.00").Replace(",", ".") + ", des=\'ACCONTO\'");
-
-            if (listasco != null && listasco.Count > 0 && dettnsco == "true")
-            {
-                if (listasco.Count == 1)
-                {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrino N. " + listasco[0].LOTTONUMERO + "\'");
-                }
-                else
-                {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrini\'");
-                    foreach (FbScontrini nscontrino in listasco)
-                    {
-                        commandi.Add("PRMSG LINE=\'N. " + nscontrino.LOTTONUMERO + "\'");
-                    }
-                }
-            }
+            commandi.Add("printRecItem|1|ACCONTO|1|" + TotalePagamento.ToString("0.00") + "|01|1");
 
             if (dettcapi == "true")
             {
                 foreach (ElementsScontrino item in ScontrinoRow)
                 {
-                    commandi.Add("prmsg riga = \'  " + item.qty.ToString() + " " + item.desc.Replace("*", "").Replace("\'", "") + "\'");
+                    commandi.Add("directIO|opAddRowDesc|1|4|1|1|" + item.qty.ToString() + " " + item.desc.Replace(" * ", "").Replace("\'", ""));
                 }
             }
 
             if (PagamentoContante > 0)
             {
-                commandi.Add("chius t=1, imp=" + PagamentoContante.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|CONTANTE|" + PagamentoContante.ToString("0.00") + "|0|1|2");
             }
             if (PagamentoCarta > 0)
             {
-                commandi.Add("chius t=5, imp=" + PagamentoCarta.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|PAG. ELETTRONICO|" + PagamentoCarta.ToString("0.00") + "|2|1|2");
             }
             if (PagamentoNonRiscosso > 0)
             {
-                commandi.Add("chius t=2, imp=" + PagamentoNonRiscosso.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|NON RISCOSSO|" + PagamentoNonRiscosso.ToString("0.00") + "|2|0|2");
             }
 
             if (PagamentoContante == 0.00M && PagamentoCarta == 0.00M && PagamentoNonRiscosso == 0.00M)
             {
                 commandi.Clear();
-                MessageBox.Show("Errore stampa scontrino." +
-                    "Errore calcolo pagamento", "PentaStart");
+                ErroreStampa errore = new ErroreStampa();
+                errore.ShowDialog();
+                errore.Dispose();
                 return;
             }
 
-            //MessageBox.Show(Path.Combine(percorsowinecr, "\\TOSEND\\scontrino.txt"));
+            commandi.Add("closeFiscalReceipt|1");
             using (StreamWriter outputFile = new StreamWriter(percorsofpmate + "\\TOSEND\\scontrino.txt"))
             {
                 foreach (string line in commandi)
@@ -1124,66 +1108,67 @@ namespace ScontrinoPenta
         private void InvioScontrinoRecuperoEpson(List<ElementsScontrino> ScontrinoRow, decimal PagamentoContante, decimal PagamentoCarta, decimal PagamentoNonRiscosso, List<FbScontrini> listasco, string infoscontrino)
         {
             List<string> commandi = new List<string>();
-            commandi.Add("clear");
-            commandi.Add("chiave reg");
-
+            commandi.Add("printerFiscalReceipt");
+            commandi.Add("beginFiscalReceipt|1");
+            commandi.Add("Printer|1");
 
             decimal TotalePagamento = PagamentoContante + PagamentoCarta + PagamentoNonRiscosso;
 
-            if (infoscontrino != "" && scontrinoparlante == "true")
-            {
-                commandi.Add("INP TERM=61");
-                commandi.Add("INP ALFA=\'" + infoscontrino + "\',TERM=49");
-            }
+            //if (infoscontrino != "" && scontrinoparlante == "true")
+            //{
 
-            commandi.Add("vend rep=1, prezzo=" + TotalePagamento.ToString("0.00").Replace(",", ".") + ", des=\'RECUPERO CREDITO\'");
+            //}
 
             if (listasco != null && listasco.Count > 0 && dettnsco == "true")
             {
                 if (listasco.Count == 1)
                 {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrino N. " + listasco[0].LOTTONUMERO + "\'");
+                    commandi.Add("printRecMessage|1|1|1|1|Rif. Scontrino N. " + listasco[0].LOTTONUMERO);
                 }
                 else
                 {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrini\'");
+                    commandi.Add("printRecMessage|1|1|1|1|Rif. Scontrini");
                     foreach (FbScontrini nscontrino in listasco)
                     {
-                        commandi.Add("PRMSG LINE=\'N. " + nscontrino.LOTTONUMERO + "\'");
+                        commandi.Add("printRecMessage|1|1|1|1|N. " + nscontrino.LOTTONUMERO);
                     }
                 }
             }
+
+            commandi.Add("printRecItem|1|RECUPERO CREDITO|1|" + TotalePagamento.ToString("0.00") + "|01|1");
 
             if (dettcapi == "true")
             {
                 foreach (ElementsScontrino item in ScontrinoRow)
                 {
-                    commandi.Add("prmsg riga = \'  " + item.qty.ToString() + " " + item.desc.Replace("*", "").Replace("\'", "") + "\'");
+                    commandi.Add("directIO|opAddRowDesc|1|4|1|1|" + item.qty.ToString() + " " + item.desc.Replace(" * ", "").Replace("\'", ""));
                 }
             }
 
             if (PagamentoContante > 0)
             {
-                commandi.Add("chius t=1, imp=" + PagamentoContante.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|CONTANTE|" + PagamentoContante.ToString("0.00") + "|0|1|2");
             }
             if (PagamentoCarta > 0)
             {
-                commandi.Add("chius t=5, imp=" + PagamentoCarta.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|PAG. ELETTRONICO|" + PagamentoCarta.ToString("0.00") + "|2|1|2");
             }
             if (PagamentoNonRiscosso > 0)
             {
-                commandi.Add("chius t=2, imp=" + PagamentoNonRiscosso.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|NON RISCOSSO|" + PagamentoNonRiscosso.ToString("0.00") + "|2|0|2");
             }
-
 
             if (PagamentoContante == 0.00M && PagamentoCarta == 0.00M && PagamentoNonRiscosso == 0.00M)
             {
                 commandi.Clear();
-                MessageBox.Show("Errore stampa scontrino." +
-                    "Errore calcolo pagamento", "PentaStart");
+                ErroreStampa errore = new ErroreStampa();
+                errore.ShowDialog();
+                errore.Dispose();
                 return;
             }
-            //MessageBox.Show(Path.Combine(percorsowinecr, "\\TOSEND\\scontrino.txt"));
+
+            commandi.Add("closeFiscalReceipt|1");
+
             using (StreamWriter outputFile = new StreamWriter(percorsofpmate + "\\TOSEND\\scontrino.txt"))
             {
                 foreach (string line in commandi)
@@ -1353,28 +1338,27 @@ namespace ScontrinoPenta
         private void InvioScontrinoEpson(List<ElementsScontrino> ScontrinoRow, double TotaleSconti, decimal PagamentoContante, decimal PagamentoCarta, decimal PagamentoNonRiscosso, List<FbScontrini> listasco, string infoscontrino)
         {
             List<string> commandi = new List<string>();
-            commandi.Add("clear");
-            commandi.Add("chiave reg");
+            commandi.Add("printerFiscalReceipt");
+            commandi.Add("beginFiscalReceipt|1"); 
+            commandi.Add("Printer|1");
 
-            if (infoscontrino != "" && scontrinoparlante == "true")
-            {
-                commandi.Add("INP TERM=61");
-                commandi.Add("INP ALFA=\'" + infoscontrino + "\',TERM=49");
-            }
+            //if (infoscontrino != "" && scontrinoparlante == "true")
+            //{
+                
+            //}
 
             foreach (ElementsScontrino item in ScontrinoRow)
             {
-                commandi.Add("vend rep=" + item.rep + ", prezzo=" + (item.prezzo * item.qty).ToString("0.00").Replace(",", ".") + ", des=\'" + item.qty.ToString() + " " + item.desc.Replace("*", "").Replace("\'", "") + "\'");
+                commandi.Add("printRecItem|1|" + (item.desc.Replace("*", "").Replace("\'", "").Length > 38 ? (item.qty.ToString() + " " + item.desc.Replace("*", "").Replace("\'", "").Substring(0,36)) : (item.qty.ToString() + " " + item.desc.Replace("*", "").Replace("\'", ""))) + "|1|" + (item.prezzo * item.qty).ToString("0.00") + "|0" + item.rep + "|1");
             }
 
             if (TotaleSconti > 0)
             {
-                commandi.Add("subt");
-                commandi.Add("inp num = " + TotaleSconti.ToString("0.00").Replace(",", ".") + ", term = 34");
+                commandi.Add("printRecSubtotalAdjustment|3|MAGG|6|" + TotaleSconti.ToString("0.00") + "|3|2");
             }
             else if (TotaleSconti < 0)
             {
-                commandi.Add("Sconto val=" + TotaleSconti.ToString("0.00").Replace(",", ".").Replace("-", "") + ",subtot");
+                commandi.Add("printRecSubtotalAdjustment|3|SCONTO|1|" + TotaleSconti.ToString("0.00") + "|3|2");
             }
 
 
@@ -1382,41 +1366,42 @@ namespace ScontrinoPenta
             {
                 if (listasco.Count == 1)
                 {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrino N. " + listasco[0].LOTTONUMERO + "\'");
+                    commandi.Add("printRecMessage|1|1|1|1|Rif. Scontrino N. " + listasco[0].LOTTONUMERO);
                 }
                 else
                 {
-                    commandi.Add("PRMSG LINE=\'Rif. Scontrini\'");
+                    commandi.Add("printRecMessage|1|1|1|1|Rif. Scontrini");
                     foreach (FbScontrini nscontrino in listasco)
                     {
-                        commandi.Add("PRMSG LINE=\'N. " + nscontrino.LOTTONUMERO + "\'");
+                        commandi.Add("printRecMessage|1|1|1|1|N. " + nscontrino.LOTTONUMERO);
                     }
                 }
             }
 
-
             if (PagamentoContante > 0)
             {
-                commandi.Add("chius t=1, imp=" + PagamentoContante.ToString("0.00").Replace(",", "."));
-
+                commandi.Add("printRecTotal|1|CONTANTE|" + PagamentoContante.ToString("0.00") + "|0|1|2");
             }
             if (PagamentoCarta > 0)
             {
-                commandi.Add("chius t=5, imp=" + PagamentoCarta.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|PAG. ELETTRONICO|" + PagamentoCarta.ToString("0.00") + "|2|1|2");
             }
             if (PagamentoNonRiscosso > 0)
             {
-                commandi.Add("chius t=2, imp=" + PagamentoNonRiscosso.ToString("0.00").Replace(",", "."));
+                commandi.Add("printRecTotal|1|NON RISCOSSO|" + PagamentoNonRiscosso.ToString("0.00") + "|2|0|2");
             }
 
             if (PagamentoContante == 0.00M && PagamentoCarta == 0.00M && PagamentoNonRiscosso == 0.00M)
             {
                 commandi.Clear();
-                MessageBox.Show("Errore stampa scontrino." +
-                    "Errore calcolo pagamento", "PentaStart");
+                ErroreStampa errore = new ErroreStampa();
+                errore.ShowDialog();
+                errore.Dispose();
                 return;
             }
-            //MessageBox.Show(Path.Combine(percorsowinecr, "\\TOSEND\\scontrino.txt"));
+
+            commandi.Add("closeFiscalReceipt|1");
+
             using (StreamWriter outputFile = new StreamWriter(percorsofpmate + "\\TOSEND\\scontrino.txt"))
             {
                 foreach (string line in commandi)
