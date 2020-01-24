@@ -58,7 +58,7 @@ namespace ScontrinoPenta
             }
             catch (Exception)
             {
-                MessageBox.Show("Errore avvio gestione Scontrino Telematico." + Environment.NewLine + "Riavvio in corso...");
+                AutoClosingMessageBox.Show("Errore avvio gestione Scontrino Telematico." + Environment.NewLine + "Riavvio in corso...","ScontrinoPenta",5000);
                 Application.Restart();
             }
 
