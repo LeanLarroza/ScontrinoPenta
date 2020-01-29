@@ -1273,7 +1273,6 @@ namespace ScontrinoPenta
             commandi.Add("=K");
             commandi.Add("=C1");
 
-
             if (listasco != null && listasco.Count > 0 && dettnsco == "true")
             {
                 if (listasco.Count == 1)
@@ -1470,21 +1469,21 @@ namespace ScontrinoPenta
                 Log.WriteLog("Percorso Database: " + percorsodb);
                 ipdb = ini.GetKeyValue("DB", "IP");
                 Log.WriteLog("Ip Database: " + ipdb);
-                mct = ini.GetKeyValue("STAMPANTI", "MCT");
+                mct = ini.GetKeyValue("STAMPANTI", "MCT").ToLower();
                 Log.WriteLog("Stampante MCT: " + mct);
-                ditron = ini.GetKeyValue("STAMPANTI", "Ditron");
+                ditron = ini.GetKeyValue("STAMPANTI", "Ditron").ToLower();
                 Log.WriteLog("Stampante Ditron: " + ditron);
-                epson = ini.GetKeyValue("STAMPANTI", "Epson");
+                epson = ini.GetKeyValue("STAMPANTI", "Epson").ToLower();
                 Log.WriteLog("Stampante Epson: " + epson);
                 postazione = ini.GetKeyValue("STAMPANTI", "Postazione");
                 Log.WriteLog("Postazione PC: " + postazione);
                 TimeoutStampante = Convert.ToInt32(ini.GetKeyValue("STAMPANTI", "TimeoutStampante"));
                 Log.WriteLog("Timeout Stampante: " + TimeoutStampante.ToString());
-                dettnsco = ini.GetKeyValue("STAMPANTI", "DettaglioNScontrino");
+                dettnsco = ini.GetKeyValue("STAMPANTI", "DettaglioNScontrino").ToLower();
                 Log.WriteLog(dettnsco == "true" ? "Stampa Numero Scontrino (Riferimento scontrino): SI" : "Stampa Numero Scontrino (Riferimento scontrino): NO");
-                dettcapi = ini.GetKeyValue("STAMPANTI", "DettaglioCapi");
+                dettcapi = ini.GetKeyValue("STAMPANTI", "DettaglioCapi").ToLower();
                 Log.WriteLog(dettcapi == "true" ? "Stampa Dettaglio Capi (Acconto/Recupero): SI" : "Stampa Dettaglio Capi (Acconto/Recupero): NO");
-                scontrinoparlante = ini.GetKeyValue("STAMPANTI", "ScontrinoParlante");
+                scontrinoparlante = ini.GetKeyValue("STAMPANTI", "ScontrinoParlante").ToLower();
                 Log.WriteLog(scontrinoparlante == "true" ? "Stampa C.F/P.IVA (Scontrino Parlante): SI" : "Stampa C.F/P.IVA (Scontrino Parlante): NO");
                 Log.WriteLog("Fine caricamento PentaStart.ini");
             }
