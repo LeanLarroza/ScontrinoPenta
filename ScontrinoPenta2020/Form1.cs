@@ -38,6 +38,7 @@ namespace ScontrinoPenta
         private static string percorsofpmate = "";
         private static string dettnsco = "";
         private static string dettcapi = "";
+        private static string automaticopagelett = "";
         private static int TimeoutStampante = 0;
         private static string scontrinoparlante = "";
         public static bool connopen = false;
@@ -56,9 +57,11 @@ namespace ScontrinoPenta
                 AggDatabase();
                 ImpostaPagamenti();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 AutoClosingMessageBox.Show("Errore avvio gestione Scontrino Telematico." + Environment.NewLine + "Riavvio in corso...","ScontrinoPenta",5000);
+                Log.WriteLog("Errore avvio ScontrinoPenta");
+                ScontrinoPenta.Log.WriteLog("Errore: " + ex.ToString());
                 Application.Restart();
             }
 
@@ -79,9 +82,25 @@ namespace ScontrinoPenta
 
             scontrino.RemoteEventCounts += new FbRemoteEventEventHandler(EventCounts);
             scontrino.QueueEvents();
+
+            ControlloOpzionePagamentoElettronico();
             notifyIcon1.ContextMenuStrip = contextMenuStrip1;
             notifyIcon1.ShowBalloonTip(500, "PentaStart - Scontrino Penta", "Servizio Attivo", ToolTipIcon.Info);
             Log.WriteLog("Servizio ScontrinoPenta attivo");
+        }
+
+        private void ControlloOpzionePagamentoElettronico()
+        {
+            if (automaticopagelett == "true")
+            {
+                FbCommand sql4 = new FbCommand("update RDB$TRIGGERS set RDB$TRIGGER_INACTIVE=0 where RDB$TRIGGER_NAME = 'NEW_PAGELETT'", connection);
+                sql4.ExecuteNonQuery();
+            }
+            else
+            {
+                FbCommand sql4 = new FbCommand("update RDB$TRIGGERS set RDB$TRIGGER_INACTIVE=1 where RDB$TRIGGER_NAME = 'NEW_PAGELETT'", connection);
+                sql4.ExecuteNonQuery();
+            }
         }
 
         private void GetPostazioneOperatori()
@@ -139,7 +158,6 @@ namespace ScontrinoPenta
             }
         }
 
-
         private void AggDatabase()
         {
             int i = 0;
@@ -153,14 +171,28 @@ namespace ScontrinoPenta
                 i++;
             }
 
+            FbCommand trigg_pagelett = new FbCommand("SELECT COUNT(RDB$RELATION_NAME) FROM RDB$TRIGGERS WHERE RDB$SYSTEM_FLAG = 0 AND RDB$TRIGGER_NAME='NEW_PAGELETT';", connection);
+            if (Convert.ToInt16(trigg_pagelett.ExecuteScalar()) == 0)
+            {
+                ImpostaPagamenti();
+                Log.WriteLog("Avvio configurazione Pag. Elettronico");
+                ImpostaPagElettronico();
+                i++;
+            }
+
             if (i > 0)
             {
                 ImpostaPagamenti();
-                MessageBox.Show("Database aggiornato. Riavvio Scontrino Penta. Query:" + i.ToString(), "PentaStart");
+                AutoClosingMessageBox.Show("Database aggiornato. Riavvio Scontrino Penta. Query:" + i.ToString(), "PentaStart",4000);
                 Log.WriteLog("Database aggiornato - Query: " + i);
                 Application.Restart();
             }
-                
+        }
+
+        private void ImpostaPagElettronico()
+        {
+                FbCommand sql4 = new FbCommand("CREATE TRIGGER NEW_PAGELETT FOR PAGAMENTILOTTI ACTIVE AFTER INSERT POSITION 0 AS declare variable lottorig INTEGER; BEGIN IF((SELECT COUNT(tp.TIPOPAGAMENTOID) from TIPIPAGAMENTI tp WHERE tp.TIPOPAGAMENTOID = NEW.TIPOPAGAMENTOID AND tp.TIPOPAGAMENTOCODICE = 2) > 0 AND (SELECT COUNT(LOTTOID) FROM DOCUMENTILOTTI d WHERE d.LOTTOID = NEW.LOTTOID AND (d.TIPODOCUMENTOID = 4 OR d.TIPODOCUMENTOID = 5 OR d.TIPODOCUMENTOID = 6)) = 0) THEN BEGIN for select * from (select distinct lr.lottorigaid from LOTTIRIGHE lr where lr.LOTTOID = NEW.LOTTOID) into :lottorig do begin INSERT INTO DOCUMENTIRIGHE VALUES(4,:lottorig,null,null,null,null,0,NEW.PAGAMENTOLOTTODATA,NEW.PAGAMENTOLOTTOORA,null,NEW.PAGAMENTOLOTTOIMPORTO,'True','Generato automaticamente (Pag. Elettronico)',null,0,'True',0); end INSERT INTO DOCUMENTILOTTI VALUES(4,NEW.LOTTOID,null,0,null,null,0,NEW.PAGAMENTOLOTTODATA,NEW.PAGAMENTOLOTTOORA,null,NEW.PAGAMENTOLOTTOIMPORTO,'True','Generato automaticamente (Pag. Elettronico)',null,NEW.PAGAMENTOLOTTOIMPORTO,'True',0,0,0,0,0,NEW.PAGAMENTOLOTTOIMPORTO,NEW.PAGAMENTOLOTTOOPERATOREID); END END; ", connection);
+                sql4.ExecuteNonQuery();
         }
 
         private void EventCounts(object sender, FbRemoteEventEventArgs args)
@@ -384,11 +416,11 @@ namespace ScontrinoPenta
 
             InvioScontrino(FbLotti, TotaleDocumento, PagamentoContante, PagamentoCarta, PagamentoNonRiscosso, TotalePagamento, TotaleSconti, ScontrinoRow, Lotti, infocliente);
             Log.WriteLog("Fine scrittura file scontrino (" + DateTime.Now.Subtract(Inizio).TotalSeconds + " secondi)");
-            attendere.Close();
             if (ControlloFile())
             {
                 attendere.Close();
                 attendere.Dispose();
+                AggiornaNumeroScontrino3logis(FbLotti, FbLottirighe);
             }
             else
             {
@@ -400,6 +432,7 @@ namespace ScontrinoPenta
                 {
                     attendere.Close();
                     attendere.Dispose();
+                    AggiornaNumeroScontrino3logis(FbLotti,FbLottirighe);
                 }
                 else
                 {
@@ -417,6 +450,35 @@ namespace ScontrinoPenta
             PagamentoContante = 0;
             PagamentoCarta = 0;
             PagamentoNonRiscosso = 0;
+        }
+
+        private void AggiornaNumeroScontrino3logis(List<string> lotti, List<string> lottirighe)
+        {
+            if (mct == "true")
+            {
+                string rispostaestesa = File.ReadAllText(percorsomultidriver + "\\TOSEND\\scontrino.OK");
+                string[] risposte = rispostaestesa.Split(';');
+                string numeroscontrino = risposte[1].ToString().Substring(5,4);
+                FbCommand aggUltimoScontrinoEmesso = new FbCommand("UPDATE DOCUMENTILOTTI SET DOCUMENTOLOTTONUMERO = '" + numeroscontrino + "' WHERE TIPODOCUMENTOID = 4 AND LOTTOID IN (" + string.Join(",",lotti) + ") ;", connection);
+                aggUltimoScontrinoEmesso.ExecuteNonQuery();
+
+                FbCommand aggUltimoScontrinoEmessoRighe = new FbCommand("UPDATE DOCUMENTIRIGHE SET DOCUMENTORIGANUMERO = '" + numeroscontrino + "' WHERE TIPODOCUMENTOID = 4 AND LOTTORIGAID IN (" + string.Join(",", lottirighe) + ") ;", connection);
+                aggUltimoScontrinoEmessoRighe.ExecuteNonQuery();
+
+                string[] paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "scontrino.OK");
+                foreach (string fileok in paths)
+                {
+                    File.Delete(fileok);
+                }
+            }
+            else if (ditron == "true")
+            {
+
+            }
+            else if (epson == "true")
+            {
+
+            }
         }
 
         private void InvioScontrino(List<string> FbLotti, decimal TotaleDocumento, decimal PagamentoContante, decimal PagamentoCarta, decimal PagamentoNonRiscosso, decimal TotalePagamento, double TotaleSconti, List<ElementsScontrino> ScontrinoRow, List<FbScontrini> Lotti, string infocliente)
@@ -501,7 +563,7 @@ namespace ScontrinoPenta
             if (mct == "true")
             {
                 Log.WriteLog("Controllo File scontrino.OK.");
-                string[] paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "*.OK");
+                string[] paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "scontrino.OK");
                 int secondi = TimeoutStampante;
                 while (paths.Length == 0)
                 {
@@ -512,7 +574,7 @@ namespace ScontrinoPenta
                     }
                     System.Threading.Thread.Sleep(1000);
                     secondi--;
-                    paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "*.OK");
+                    paths = System.IO.Directory.GetFiles(GetPercorsoStampante() + "\\TOSEND", "scontrino.OK");
                 }
                 Log.WriteLog("MultiDriver ha inviato lo scontrino con succeso.");
                 return true;
@@ -1437,7 +1499,6 @@ namespace ScontrinoPenta
             }
         }
 
-
         public static FbConnection LoadDatabase()
         {
             string ConnectionString = "User ID=" + userdb + ";Password=" + passdb + ";" + "Database=" + ipdb + ":" + percorsodb + "\\triLogis.fb20" + ";Charset=NONE;";
@@ -1485,6 +1546,8 @@ namespace ScontrinoPenta
                 Log.WriteLog(dettcapi == "true" ? "Stampa Dettaglio Capi (Acconto/Recupero): SI" : "Stampa Dettaglio Capi (Acconto/Recupero): NO");
                 scontrinoparlante = ini.GetKeyValue("STAMPANTI", "ScontrinoParlante").ToLower();
                 Log.WriteLog(scontrinoparlante == "true" ? "Stampa C.F/P.IVA (Scontrino Parlante): SI" : "Stampa C.F/P.IVA (Scontrino Parlante): NO");
+                automaticopagelett = ini.GetKeyValue("STAMPANTI", "StampaElettronico").ToLower();
+                Log.WriteLog(automaticopagelett == "true" ? "Stampa Automatica Pag. Elettronico: SI" : "Stampa Automatica Pag. Elettronico: NO");
                 Log.WriteLog("Fine caricamento PentaStart.ini");
             }
         }
