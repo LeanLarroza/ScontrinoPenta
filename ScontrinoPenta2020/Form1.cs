@@ -233,6 +233,7 @@ namespace ScontrinoPenta
             {
                 int tipovariazione = 0;
                 double variazioneprezzo = 0;
+                decimal PrezzoArticolo = reader1.GetDecimal(3);
                 try
                 {
                     if (Int32.TryParse(reader1.GetString(4), out tipovariazione))
@@ -256,13 +257,19 @@ namespace ScontrinoPenta
                         {
                             variazioneprezzo = -reader1.GetDouble(3);
                         }
+                        else if (tipovariazione == 11)
+                        {
+                            Log.WriteLog("Tipo variazione: " + tipovariazione);
+                            Log.WriteLog("Valore Variazione: " + reader1.GetDouble(3));
+                            variazioneprezzo = 0;
+                        }
                     }
                 }
                 catch (Exception)
                 {
                     variazioneprezzo = 0;
                 }
-                Articoli.Add(new FbArticolo { ARTICOLOID = reader1.GetInt32(0), LOTTORIGADESCRIZIONE = reader1.GetString(1), ARTICOLOCODREP = reader1.GetInt32(2), LOTTORIGALAVORAZIONEPREZZO = reader1.GetDecimal(3), MODIFLOTTORIGAVALORE = variazioneprezzo });
+                Articoli.Add(new FbArticolo { ARTICOLOID = reader1.GetInt32(0), LOTTORIGADESCRIZIONE = reader1.GetString(1), ARTICOLOCODREP = reader1.GetInt32(2), LOTTORIGALAVORAZIONEPREZZO = PrezzoArticolo, MODIFLOTTORIGAVALORE = variazioneprezzo });
             }
             reader1.Close();
 
@@ -289,7 +296,6 @@ namespace ScontrinoPenta
                     try
                     {
                         TotaleDocumento = TotaleDocumento + GetDecimal(articolo.LOTTORIGALAVORAZIONEPREZZO);
-
                     }
                     catch (Exception ex)
                     {
@@ -390,6 +396,18 @@ namespace ScontrinoPenta
             else
             {
                 Log.WriteLog("Nessun C.F./P.IVA da abbinare allo scontrino");
+            }
+
+            if (TotalePagamento < TotaleDocumento)
+            {
+                Log.WriteLog("Il totale del pagamento attuale e minore al importo totale.");
+                Log.WriteLog("Ricerca pagamenti precedenti in corso.");
+                GetPagamentiAnticipati(StringLotti, ref PagamentoContante, ref PagamentoCarta, ref PagamentoNonRiscosso);
+                TotalePagamento = GetTotalePagamento(PagamentoContante, PagamentoCarta, PagamentoNonRiscosso);
+                if (TotalePagamento < TotaleDocumento)
+                {
+                    Log.WriteLog("Pagamento minore al importo del documento (ACCONTO/REC. CREDITO).");
+                }
             }
 
             if (TotalePagamento == 0)

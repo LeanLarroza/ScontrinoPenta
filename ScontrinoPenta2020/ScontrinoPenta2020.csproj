@@ -170,6 +170,6 @@
       PostBuildMacros;
     </PostBuildEventDependsOn>
     <PostBuildEvent>call "$(SolutionDir)zipper.bat"
-call "$(SolutionDir)xml.bat" 2.7.0.0</PostBuildEvent>
+call "$(SolutionDir)xml.bat" 2.9.0.0</PostBuildEvent>
   </PropertyGroup>
 </Project>
